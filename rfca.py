@@ -84,7 +84,6 @@ def rfca_rule(num1, num2, num3):
         110: 0,
         111: 1,
     }
-
     return rules.get(inputNum, None)
 
 def main():
@@ -105,6 +104,6 @@ def main():
     #print('b = ' + str(b))
     #print('c = ' + str(c))
 
-
+# Test
 if __name__ == '__main__':
     main()
