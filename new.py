@@ -10,34 +10,69 @@ from deap import creator
 from deap import tools
 from deap import gp
 
-archives = np.zeros((100, 2))
+archives = np.zeros((1000, 2))
+rule_set = np.zeros((256, 8))
 archive_count = 0
 THRESHOLD = 0
+rfcaIn = []
+HISTORY_AMOUNT = 2000
+cal_history = np.zeros((HISTORY_AMOUNT, 10))
+history_count = 0
 
-def fitness_calculation(rfca):
+def fitness_calculation(ruleNum):
     attrLen = 0
     tranLen = 0
-    tranLen, attrLen = rfca_evaluation(rfca)
+    tranLen, attrLen = rfca_evaluation(ruleNum)
     tranLen = tranLen + 1
 
     #print('tranLen = ' + str(tranLen))
     #print('attrLen = ' + str(attrLen))
     #print('-------------------')
-    archive(rfca, tranLen, attrLen)
+    archive(ruleNum, tranLen, attrLen)
 
     fitness = novel_cal(tranLen, attrLen)
 
     #print(fitness)
     return fitness,
 
-def rfca_evaluation(rfca):
+def rfca_generate():
+    global rfcaIn
+    for j in range(25):
+        rfcaIn.append(random.randint(0, 1))
+
+def rfca_evaluation(ruleNum):
+    global cal_history
+    global history_count
+
     aCount = 0
     tCount = 0
     attractor_found = False
-    # assume that the transient length is less than 200
-    rfcaAll = np.zeros((300, 25))
-
+    # assume that the transient length is less than 320
+    rfcaAll = np.zeros((320, 25))
+    rfca = []
     rfcaNew = []
+
+    # calculate history
+    calculated = False
+    historyNum = 0
+    for i in range(history_count + 1):
+        temp_bool = True
+        for j in range(8):
+            if (cal_history[i][j] != ruleNum[j]):
+                temp_bool = False
+        if (temp_bool == True):
+            calculated = True
+
+
+    # use history to store calculated fitness
+    # optimize purpose
+    if (calculated == True):
+        #print("history used")
+        return cal_history[historyNum][8], cal_history[historyNum][9]
+
+    for i in range(25):
+        rfca.append(rfcaIn[i])
+
     while (attractor_found == False):
 
         # before each loop, clear rfcaNew
@@ -46,8 +81,8 @@ def rfca_evaluation(rfca):
                 rfcaNew.pop()
                 updateNum = 0
 
-        # update node 1
-        updateNum = rfca_rule2(rfca[0], rfca[24], rfca[1])
+        #update node 1
+        updateNum = rfca_rule(ruleNum[0], rfca[0], rfca[24], rfca[1])
         rfcaNew.append(updateNum)
 
         # update node 2 - 24
@@ -59,34 +94,12 @@ def rfca_evaluation(rfca):
             #print(num1)
             #print(num2)
             #print(num3)
-            if (i == 1) or (i == 3) or (i == 5) or (i == 9):
-                updateNum = rfca_rule3(num1, num2, num3)
-                #print("Update = " + str(updateNum))
-            else:
-                if (i == 2) or (i == 19) or (i == 6) or (i == 13):
-                    updateNum = rfca_rule6(num1, num2, num3)
-                else:
-                    if (i == 12) or (i == 23) or (i == 16):
-                        updateNum = rfca_rule5(num1, num2, num3)
-                    else:
-                        if (i == 11) or (i == 8) or (i == 21):
-                            updateNum = rfca_rule7(num1, num2, num3)
-                        else:
-                            if ( i == 17) or (i == 4) or (i == 15):
-                                updateNum = rfca_rule2(num1, num2, num3)
-                            else:
-                                if (i == 18) or (i == 14):
-                                    updateNum = rfca_rule8(num1, num2, num3)
-                                else:
-                                    if (i == 7) or (i == 21):
-                                        updateNum = rfca_rule(num1, num2, num3)
-                                    else:
-                                        updateNum = rfca_rule9(num1, num2, num3)
+            updateNum = rfca_rule(ruleNum[i], num1, num2, num3)
 
             rfcaNew.append(updateNum)
 
         #update node 25
-        updateNum = rfca_rule4(rfca[24], rfca[23], rfca[0])
+        updateNum = rfca_rule(ruleNum[24], rfca[24], rfca[23], rfca[0])
         rfcaNew.append(updateNum)
 
         for i in range(25):
@@ -109,146 +122,81 @@ def rfca_evaluation(rfca):
 
         tCount = tCount + 1
 
+        if (tCount > 300):
+            tCount = 0
+            attractor_found = True
+            aCount = 0
         #print(rfcaAll)
         #print('attractor length = ' + str(attrCount))
 
+    if (history_count < HISTORY_AMOUNT - 1) and (calculated == False):
+        history_count = history_count + 1
+        for i in range(8):
+            cal_history[history_count][i] = ruleNum[i]
+        cal_history[history_count][8] = tCount
+        cal_history[history_count][9] = aCount
+    #print(cal_history[history_count - 1])
+    #print(history_count)
     return  tCount, aCount
 
-
-###################### RFCA rules ########################
+###################### RFCA rules generator########################
 # num1 is the node itself
 # num2, 3 are the neighboring nodes
-def rfca_rule(num1, num2, num3):
+def rfca_rule(rule, num1, num2, num3):
+    global rule_set
     inputNum = num1 * 100 + num2 * 10 + num3
+    # receive rule from rule_generate function
+
+    ru0 = rule_set[rule][0]
+    ru1 = rule_set[rule][1]
+    ru2 = rule_set[rule][2]
+    ru3 = rule_set[rule][3]
+    ru4 = rule_set[rule][4]
+    ru5 = rule_set[rule][5]
+    ru6 = rule_set[rule][6]
+    ru7 = rule_set[rule][7]
+
     rules = {
         # left side => input
         # right side => output
         # 000
-        0: 1,
+        0: ru0,
         # 001
-        1: 1,
+        1: ru1,
         # 010
-        10: 0,
-        100: 0,
+        10: ru2,
+        100: ru3,
         # 011
-        11: 1,
-        101: 0,
-        110: 0,
-        111: 1,
+        11: ru4,
+        101: ru5,
+        110: ru6,
+        111: ru7,
     }
+
     return rules.get(inputNum, None)
 
-def rfca_rule2(num1, num2, num3):
-    inputNum = num1 * 100 + num2 * 10 + num3
-    rules = {
-        0: 1,
-        1: 0,
-        10: 1,
-        100: 1,
-        11: 1,
-        101: 1,
-        110: 0,
-        111: 1,
-    }
-    return rules.get(inputNum, None)
+def rule_generate():
+    global rule_set
+    count = 0
+    for k in range(4):
+        for k2 in range(4):
+            for k3 in range(4):
+                for k4 in range(4):
+                    rule_set[count][0], rule_set[count][1] = cal_sec(k)
+                    rule_set[count][2], rule_set[count][3] = cal_sec(k2)
+                    rule_set[count][4], rule_set[count][5] = cal_sec(k3)
+                    rule_set[count][6], rule_set[count][7] = cal_sec(k4)
+                    count = count + 1
 
-def rfca_rule3(num1, num2, num3):
-    inputNum = num1 * 100 + num2 * 10 + num3
-    rules = {
-        0: 0,
-        1: 0,
-        10: 1,
-        100: 0,
-        11: 1,
-        101: 0,
-        110: 1,
-        111: 0,
-    }
-    return rules.get(inputNum, None)
-
-def rfca_rule4(num1, num2, num3):
-    inputNum = num1 * 100 + num2 * 10 + num3
-    rules = {
-        0: 1,
-        1: 0,
-        10: 1,
-        100: 1,
-        11: 1,
-        101: 1,
-        110: 0,
-        111: 0,
-    }
-    return rules.get(inputNum, None)
-
-def rfca_rule5(num1, num2, num3):
-    inputNum = num1 * 100 + num2 * 10 + num3
-    rules = {
-        0: 0,
-        1: 1,
-        10: 0,
-        100: 1,
-        11: 0,
-        101: 1,
-        110: 1,
-        111: 0,
-    }
-    return rules.get(inputNum, None)
-
-def rfca_rule6(num1, num2, num3):
-    inputNum = num1 * 100 + num2 * 10 + num3
-    rules = {
-        0: 0,
-        1: 1,
-        10: 0,
-        100: 0,
-        11: 0,
-        101: 0,
-        110: 1,
-        111: 1,
-    }
-    return rules.get(inputNum, None)
-
-def rfca_rule7(num1, num2, num3):
-    inputNum = num1 * 100 + num2 * 10 + num3
-    rules = {
-        0: 1,
-        1: 0,
-        10: 0,
-        100: 0,
-        11: 0,
-        101: 1,
-        110: 1,
-        111: 1,
-    }
-    return rules.get(inputNum, None)
-
-def rfca_rule8(num1, num2, num3):
-    inputNum = num1 * 100 + num2 * 10 + num3
-    rules = {
-        0: 1,
-        1: 1,
-        10: 1,
-        100: 0,
-        11: 1,
-        101: 0,
-        110: 0,
-        111: 1,
-    }
-    return rules.get(inputNum, None)
-
-def rfca_rule9(num1, num2, num3):
-    inputNum = num1 * 100 + num2 * 10 + num3
-    rules = {
-        0: 0,
-        1: 1,
-        10: 1,
-        100: 1,
-        11: 1,
-        101: 0,
-        110: 0,
-        111: 0,
-    }
-    return rules.get(inputNum, None)
+def cal_sec(num):
+    if (num == 0):
+        return 0, 0
+    if (num == 1):
+        return 0, 1
+    if (num == 2):
+        return 1, 0
+    if (num == 3):
+        return 1, 1
 
 ##########################################################
 
@@ -278,15 +226,21 @@ def novel_cal(transient, attractor):
     novelScore = 0
 
     if (archive_count > 0):
+        tempScore = 0
         for i in range(archive_count + 1):
             if (transient != archives[i][0]) and (attractor == archives[i][1]):
-                novelScore = novelScore + 1
+                tempScore = tempScore + 1
             if (transient == archives[i][0]) and (attractor == archives[i][1]):
-                novelScore = novelScore - 10
+                tempScore = tempScore - archive_count
             if (transient == archives[i][0]) and (attractor != archives[i][1]):
-                novelScore = novelScore + 1
-    if (archive_count == 0):
-        novelScore = 0
+                tempScore = tempScore + 1
+            if (transient != archives[i][0]) and (attractor != archives[i][1]):
+                tempScore = tempScore + 2
+            novelScore = tempScore/archive_count
+    if (archive_count == 1):
+        novelScore = 2
+    #print(archive_count)
+    print(novelScore)
     return novelScore
 
 # archive
@@ -294,6 +248,11 @@ def archive(individual, transient, attractor):
     global archives
     global THRESHOLD
     global archive_count
+
+    if (archive_count == 1):
+        archives[archive_count][0] = transient
+        archives[archive_count][1] = attractor
+        archive_count = archive_count + 1
 
     meet_threshold = True
     if (archive_count > 0):
@@ -306,15 +265,11 @@ def archive(individual, transient, attractor):
         archives[archive_count][1] = attractor
         archive_count = archive_count + 1
 
-    if (archive_count == 0):
-        archives[archive_count][0] = transient
-        archives[archive_count][1] = attractor
-        archive_count = archive_count + 1
-
 ################ Main Generation Settings ################
 IND_SIZE = 25
 INT_MIN = 0
-INT_MAX = 1
+INT_MAX = 255
+
 # initial toolbox
 toolbox = base.Toolbox()
 
@@ -328,6 +283,8 @@ toolbox.register("population", tools.initRepeat, list, toolbox.individual)
 
 toolbox.register("evaluate", fitness_calculation)
 toolbox.register("mate", tools.cxTwoPoint)
+#toolbox.register("select", tools.selTournament, tournsize=3)
+toolbox.register("mutate", tools.mutFlipBit, indpb=0.05)
 
 ## Multiprocessing
 ## code from: https://deap.readthedocs.io/en/master/tutorials/basic/part4.html
@@ -345,8 +302,16 @@ def main():
     #rfcaFinal = []
 
     # deap parameters
-    NGEN = 5
+    NGEN = 10
     POP = 100
+    MUTPB = 0.1
+    CXPB = 0.2
+
+    # generate rules
+    rule_generate()
+    #print(rule_set)
+
+    rfca_generate()
 
     population = toolbox.population(n = POP)
 
@@ -363,32 +328,35 @@ def main():
     # start generation
     while gen < NGEN:
         gen = gen + 1
-        print("Current Generation: %i" %gen)
+        print("Generation: %i Processing" %gen)
 
         # select next generation
+        #offspring = toolbox.select(population, len(population))
+        #offspring = list(map(toolbox.clone, offspring))
         offspring = list(map(toolbox.clone, population))
 
         for child1, child2 in zip(offspring[::2], offspring[1::2]):
-            select_cross(child1, child2)
-            del child1.fitness.values
-            del child2.fitness.values
+            if random.random() < CXPB:
+                select_cross(child1, child2)
+                del child1.fitness.values
+                del child2.fitness.values
+
+        for mutant in offspring:
+            if random.random() < MUTPB:
+                toolbox.mutate(mutant)
+                del mutant.fitness.values
 
         invalid_ind = [ind for ind in offspring if not ind.fitness.valid]
         fitnesses = map(toolbox.evaluate, invalid_ind)
         for ind, fit in zip(invalid_ind, fitnesses):
             ind.fitness.values = fit
-            population[:] = offspring
+
+
+        population[:] = offspring
 
         fits = [ind.fitness.values[0] for ind in population]
 
         length = len(population)
-        mean = sum(fits) / length
-        sum2 = sum(x*x for x in fits)
-        std = abs(sum2 / length - mean**2)**0.5
-
-        print("  Max: %s" % max(fits))
-        print("  Avg: %s " % mean)
-        print("  Std: %s " % std)
 
     # for testing purpose!!!
     #for i in range(1, 26):
@@ -405,9 +373,9 @@ def main():
 
     print("  Archived Individual: %s" % archive_count)
 
-    print("  Archived Details")
-    print(archives)
+    #print("  Archived Details")
     #print(archives)
+
     return population
 
 if __name__ == '__main__':
