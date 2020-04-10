@@ -44,7 +44,7 @@ def rfca_evaluation(rfca):
         if (len(rfcaNew) != 0):
             for p in range(25):
                 rfcaNew.pop()
-        updateNum = 0
+                updateNum = 0
 
         # update node 1
         updateNum = rfca_rule2(rfca[0], rfca[24], rfca[1])
@@ -377,7 +377,7 @@ def main():
         fitnesses = map(toolbox.evaluate, invalid_ind)
         for ind, fit in zip(invalid_ind, fitnesses):
             ind.fitness.values = fit
-        population[:] = offspring
+            population[:] = offspring
 
         fits = [ind.fitness.values[0] for ind in population]
 
