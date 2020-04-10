@@ -1,19 +1,20 @@
+# TUCO Assessment
+# Question 1 Source Code
+# Used DEAP as GA library
+
 import random
 import math
 import numpy as np
 import numbers
-import multiprocessing
+import xlwt
 
-from deap import algorithms
 from deap import base
 from deap import creator
 from deap import tools
-from deap import gp
 
 archives = np.zeros((1000, 2))
 rule_set = np.zeros((256, 8))
 archive_count = 0
-THRESHOLD = 0
 rfcaIn = []
 HISTORY_AMOUNT = 2000
 cal_history = np.zeros((HISTORY_AMOUNT, 10))
@@ -246,7 +247,6 @@ def novel_cal(transient, attractor):
 # archive
 def archive(individual, transient, attractor):
     global archives
-    global THRESHOLD
     global archive_count
 
     if (archive_count == 1):
@@ -286,10 +286,14 @@ toolbox.register("mate", tools.cxTwoPoint)
 #toolbox.register("select", tools.selTournament, tournsize=3)
 toolbox.register("mutate", tools.mutFlipBit, indpb=0.05)
 
-## Multiprocessing
-## code from: https://deap.readthedocs.io/en/master/tutorials/basic/part4.html
-pool = multiprocessing.Pool()
-toolbox.register("map", pool.map)
+def save(data, path):
+    f = xlwt.Workbook()
+    sheet1 = f.add_sheet(u'sheet1', cell_overwrite_ok = True)
+    [h, l] = data.shape
+    for i in range(h):
+        for j in range(l):
+            sheet1.write(i, j, data[i, j])
+    f.save(path)
 
 def main():
 
@@ -302,7 +306,7 @@ def main():
     #rfcaFinal = []
 
     # deap parameters
-    NGEN = 10
+    NGEN = 5
     POP = 100
     MUTPB = 0.1
     CXPB = 0.2
@@ -351,7 +355,6 @@ def main():
         for ind, fit in zip(invalid_ind, fitnesses):
             ind.fitness.values = fit
 
-
         population[:] = offspring
 
         fits = [ind.fitness.values[0] for ind in population]
@@ -374,7 +377,8 @@ def main():
     print("  Archived Individual: %s" % archive_count)
 
     #print("  Archived Details")
-    #print(archives)
+    print(archives)
+    save(archives, '1.xls')
 
     return population
 
