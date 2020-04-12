@@ -7,12 +7,13 @@ import math
 import numpy as np
 import numbers
 import xlwt
+import multiprocessing
 
 from deap import base
 from deap import creator
 from deap import tools
 
-archives = np.zeros((1000, 2))
+archives = np.zeros((2400, 28))
 rule_set = np.zeros((256, 8))
 archive_count = 0
 rfcaIn = []
@@ -23,8 +24,7 @@ history_count = 0
 def fitness_calculation(ruleNum):
     attrLen = 0
     tranLen = 0
-    tranLen, attrLen = rfca_evaluation(ruleNum)
-    tranLen = tranLen + 1
+    tranLen, attrLen = rfca_evaluation(ruleNum, 1)
 
     #print('tranLen = ' + str(tranLen))
     #print('attrLen = ' + str(attrLen))
@@ -34,14 +34,17 @@ def fitness_calculation(ruleNum):
     fitness = novel_cal(tranLen, attrLen)
 
     #print(fitness)
+    # although it returns fitness, the evaluation process doesn't rely on the fitness value
     return fitness,
 
 def rfca_generate():
     global rfcaIn
     for j in range(25):
         rfcaIn.append(random.randint(0, 1))
+    print(rfcaIn)
 
-def rfca_evaluation(ruleNum):
+
+def rfca_evaluation(ruleNum, rfcaNo):
     global cal_history
     global history_count
 
@@ -116,7 +119,7 @@ def rfca_evaluation(ruleNum):
                     rfca_find_same = False
             if (rfca_find_same == True):
                 attractor_found = True
-                aCount = tCount - i - 1
+                aCount = tCount - i
 
         for i in range(25):
             rfcaAll[tCount][i] = rfcaNew[i]
@@ -129,6 +132,8 @@ def rfca_evaluation(ruleNum):
             aCount = 0
         #print(rfcaAll)
         #print('attractor length = ' + str(attrCount))
+
+    tCount = tCount - aCount
 
     if (history_count < HISTORY_AMOUNT - 1) and (calculated == False):
         history_count = history_count + 1
@@ -241,7 +246,7 @@ def novel_cal(transient, attractor):
     if (archive_count == 1):
         novelScore = 2
     #print(archive_count)
-    print(novelScore)
+    #print(novelScore)
     return novelScore
 
 # archive
@@ -252,6 +257,8 @@ def archive(individual, transient, attractor):
     if (archive_count == 1):
         archives[archive_count][0] = transient
         archives[archive_count][1] = attractor
+        for i in range(2, 27):
+            archives[archive_count][i] = individual[i - 2]
         archive_count = archive_count + 1
 
     meet_threshold = True
@@ -263,7 +270,10 @@ def archive(individual, transient, attractor):
     if (meet_threshold == True):
         archives[archive_count][0] = transient
         archives[archive_count][1] = attractor
-        archive_count = archive_count + 1
+        for i in range(2, 27):
+            archives[archive_count][i] = individual[i - 2]
+        archive_count =archive_count + 1
+
 
 ################ Main Generation Settings ################
 IND_SIZE = 25
@@ -284,7 +294,11 @@ toolbox.register("population", tools.initRepeat, list, toolbox.individual)
 toolbox.register("evaluate", fitness_calculation)
 toolbox.register("mate", tools.cxTwoPoint)
 #toolbox.register("select", tools.selTournament, tournsize=3)
-toolbox.register("mutate", tools.mutFlipBit, indpb=0.05)
+#toolbox.register("mutate", tools.mutShuffleIndexes, indpb=0.10)
+toolbox.register("mutate", tools.mutUniformInt, low=0, up=250, indpb=0.10)
+
+pool = multiprocessing.Pool()
+toolbox.register("map", pool.map)
 
 def save(data, path):
     f = xlwt.Workbook()
@@ -306,9 +320,9 @@ def main():
     #rfcaFinal = []
 
     # deap parameters
-    NGEN = 5
-    POP = 100
-    MUTPB = 0.1
+    NGEN = 10
+    POP = 50
+    MUTPB = 0.3
     CXPB = 0.2
 
     # generate rules
@@ -361,23 +375,8 @@ def main():
 
         length = len(population)
 
-    # for testing purpose!!!
-    #for i in range(1, 26):
-    #    num = np.random.randint(0, 2)
-    #    rfcaInitial.append(num)
-
-    #print(rfcaInitial)
-    #a = fitness_calculation(rfcaInitial)
-
-    #b = rfca_rule(0, 1, 0)
-    #c = rfca_rule(1, 1, 1)
-    #print('b = ' + str(b))
-    #print('c = ' + str(c))
-
     print("  Archived Individual: %s" % archive_count)
 
-    #print("  Archived Details")
-    print(archives)
     save(archives, '1.xls')
 
     return population
