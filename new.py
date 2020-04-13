@@ -8,30 +8,38 @@ import numpy as np
 import numbers
 import xlwt
 import multiprocessing
+import cmath
 
 from deap import base
 from deap import creator
 from deap import tools
 
-archives = np.zeros((2400, 28))
+# some parameters
+HISTORY_AMOUNT = 2000
+TLIMIT = 300
+THRESHOLD = 10
+
+archives = np.zeros((24000, 28))
+not_archive_but_different = np.zeros((30000, 2))
+notArchive = 0
 rule_set = np.zeros((256, 8))
 archive_count = 0
 rfcaIn = []
-HISTORY_AMOUNT = 2000
 cal_history = np.zeros((HISTORY_AMOUNT, 10))
 history_count = 0
 
 def fitness_calculation(ruleNum):
     attrLen = 0
     tranLen = 0
-    tranLen, attrLen = rfca_evaluation(ruleNum, 1)
+    tranLen, attrLen = rfca_evaluation(ruleNum)
 
     #print('tranLen = ' + str(tranLen))
     #print('attrLen = ' + str(attrLen))
     #print('-------------------')
-    archive(ruleNum, tranLen, attrLen)
 
     fitness = novel_cal(tranLen, attrLen)
+
+    archive(ruleNum, tranLen, attrLen, fitness)
 
     #print(fitness)
     # although it returns fitness, the evaluation process doesn't rely on the fitness value
@@ -44,15 +52,16 @@ def rfca_generate():
     print(rfcaIn)
 
 
-def rfca_evaluation(ruleNum, rfcaNo):
+def rfca_evaluation(ruleNum):
     global cal_history
     global history_count
+    global TLIMIT
 
     aCount = 0
     tCount = 0
     attractor_found = False
     # assume that the transient length is less than 320
-    rfcaAll = np.zeros((320, 25))
+    rfcaAll = np.zeros((TLIMIT, 25))
     rfca = []
     rfcaNew = []
 
@@ -66,7 +75,6 @@ def rfca_evaluation(ruleNum, rfcaNo):
                 temp_bool = False
         if (temp_bool == True):
             calculated = True
-
 
     # use history to store calculated fitness
     # optimize purpose
@@ -126,7 +134,7 @@ def rfca_evaluation(ruleNum, rfcaNo):
 
         tCount = tCount + 1
 
-        if (tCount > 300):
+        if (tCount > TLIMIT - 1):
             tCount = 0
             attractor_found = True
             aCount = 0
@@ -212,7 +220,7 @@ def select_cross(ind1, ind2):
     fitness2 = fitness_calculation(ind2)
 
     # compare
-    if fitness1 >= fitness2:
+    if fitness1 > fitness2:
         winner = ind1
         loser = ind2
     else:
@@ -231,49 +239,89 @@ def infect(winner, loser):
 def novel_cal(transient, attractor):
     novelScore = 0
 
+    tNear1 = 100
+    tNear2 = 100
+    tNear3 = 100
+    tTemp = 0
+
+    aNear1 = 100
+    aNear2 = 100
+    aNear3 = 100
+    aTemp = 0
+
     if (archive_count > 0):
-        tempScore = 0
-        for i in range(archive_count + 1):
-            if (transient != archives[i][0]) and (attractor == archives[i][1]):
-                tempScore = tempScore + 1
-            if (transient == archives[i][0]) and (attractor == archives[i][1]):
-                tempScore = tempScore - archive_count
-            if (transient == archives[i][0]) and (attractor != archives[i][1]):
-                tempScore = tempScore + 1
-            if (transient != archives[i][0]) and (attractor != archives[i][1]):
-                tempScore = tempScore + 2
-            novelScore = tempScore/archive_count
+        for i in range(archive_count):
+            tTemp = abs(transient - archives[i][0])
+            print('tTemp' + str(tTemp))
+            if (tTemp <= tNear1):
+                tNear3 = tNear2
+                tNear2 = tNear1
+                tNear1 = tTemp
+                print('tTemp < tNear1')
+                print(tNear1)
+                print(tNear2)
+                print(tNear3)
+            else:
+                if (tTemp <= tNear2):
+                    tNear3 = tNear2
+                    tNear2 = tTemp
+                else:
+                    if (tTemp <= tNear3):
+                        tNear3 = tTemp
+
+            aTemp = abs(attractor - archives[i][1])
+            if (aTemp <= aNear1):
+                aNear3 = aNear2
+                aNear2 = aNear1
+                aNear1 = aTemp
+            else:
+                if (aTemp <= aNear2):
+                    aNear3 = aNear2
+                    aNear2 = aTemp
+                else:
+                    if (aTemp < aNear3):
+                        aNear3 = aTemp
+
+    #novelScore = abs(tNear3 + tNear2 + tNear1 + aNear3 + aNear2 + aNear1 - transient * 3 - attractor * 3)
+    novelScore = np.sqrt(np.square(tNear3 - transient) + np.square(aNear3 - attractor)) + np.sqrt(np.square(tNear2 - transient) + np.square(aNear2 - attractor)) + np.sqrt(np.square(tNear1 - transient) + np.square(aNear1 - attractor))
+
+    novelScore = novelScore/3
+
     if (archive_count == 1):
-        novelScore = 2
-    #print(archive_count)
-    #print(novelScore)
+        novelScore = 0
+
+#    if (novelScore != 0):
+#        print(novelScore)
     return novelScore
 
-# archive
-def archive(individual, transient, attractor):
+#archive function (optimized)
+def archive(individual, transient, attractor, score):
     global archives
     global archive_count
+    global notArchive
+    global not_archive_but_different
 
-    if (archive_count == 1):
-        archives[archive_count][0] = transient
-        archives[archive_count][1] = attractor
-        for i in range(2, 27):
-            archives[archive_count][i] = individual[i - 2]
-        archive_count = archive_count + 1
-
-    meet_threshold = True
-    if (archive_count > 0):
-        for i in range(archive_count + 1):
-            if (transient == archives[i][0]) and (attractor == archives[i][1]):
-                meet_threshold = False
-
-    if (meet_threshold == True):
-        archives[archive_count][0] = transient
-        archives[archive_count][1] = attractor
-        for i in range(2, 27):
-            archives[archive_count][i] = individual[i - 2]
-        archive_count =archive_count + 1
-
+    if (transient != 0) and (attractor != 0):
+        if (archive_count == 1) or (score > THRESHOLD):
+            archives[archive_count][0] = transient
+            archives[archive_count][1] = attractor
+            for i in range(2, 27):
+                archives[archive_count][i] = individual[i - 2]
+            archive_count = archive_count + 1
+        else:
+            meet_f = True
+            if (notArchive == 0):
+                not_archive_but_different[notArchive][0] = transient
+                not_archive_but_different[notArchive][1] = attractor
+                notArchive = notArchive + 1
+            if (notArchive > 0):
+                for i in range(notArchive + 1):
+                    if(transient == not_archive_but_different[i][0]) and (attractor == archives[i][1]):
+                        meet_f = False
+            if (meet_f == True):
+                not_archive_but_different[notArchive][0] = transient
+                not_archive_but_different[notArchive][1] = attractor
+                notArchive = notArchive + 1
 
 ################ Main Generation Settings ################
 IND_SIZE = 25
@@ -293,7 +341,7 @@ toolbox.register("population", tools.initRepeat, list, toolbox.individual)
 
 toolbox.register("evaluate", fitness_calculation)
 toolbox.register("mate", tools.cxTwoPoint)
-#toolbox.register("select", tools.selTournament, tournsize=3)
+#toolbox.register("select", tools.selTournament, tournsize=2)
 #toolbox.register("mutate", tools.mutShuffleIndexes, indpb=0.10)
 toolbox.register("mutate", tools.mutUniformInt, low=0, up=250, indpb=0.10)
 
@@ -320,10 +368,10 @@ def main():
     #rfcaFinal = []
 
     # deap parameters
-    NGEN = 10
+    NGEN = 20
     POP = 50
-    MUTPB = 0.3
-    CXPB = 0.2
+    MUTPB = 0.1
+    CXPB = 0.1
 
     # generate rules
     rule_generate()
@@ -346,7 +394,7 @@ def main():
     # start generation
     while gen < NGEN:
         gen = gen + 1
-        print("Generation: %i Processing" %gen)
+        print("Generation: %i" %gen)
 
         # select next generation
         #offspring = toolbox.select(population, len(population))
@@ -374,10 +422,15 @@ def main():
         fits = [ind.fitness.values[0] for ind in population]
 
         length = len(population)
+        mean = sum(fits) / length
+
+        print(" %s," % mean)
+        print(" %i" % gen)
 
     print("  Archived Individual: %s" % archive_count)
 
-    save(archives, '1.xls')
+    save(archives, 'archives.xls')
+    save(not_archive_but_different, 'others.xls')
 
     return population
 

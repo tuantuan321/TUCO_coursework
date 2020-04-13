@@ -8,12 +8,12 @@ import math
 import numpy as np
 import numbers
 import xlwt
+from matplotlib import pyplot as plt
 
 archive_count = 0
 rule_set = np.zeros((256, 8))
 evaluate_record = np.zeros((600, 25))
 evaluateNum = 0
-
 TRAN_LIMIT = 350
 
 def evaluate_calculation(ruleNum, rfca):
@@ -73,8 +73,8 @@ def rfca_evaluation(ruleNum, rfca):
                 if (int(rfcaAll[i][j]) != rfcaNew[j]):
                     rfca_find_same = False
             if (rfca_find_same == True):
-                attractor_found = True
                 aCount = tCount - i
+                attractor_found = True
 
         for i in range(25):
             rfcaAll[tCount][i] = rfcaNew[i]
@@ -167,10 +167,18 @@ def main():
 
     rule_generate()
 
-    rfca =[0, 0, 1, 0, 1, 0, 0, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 1, 0, 0]
-    rfcaNum = [238,199,153,246,161,187,86,38,173,176,201,70,130,186,86,11,96,174,192,61,207,2,134,194,198]
+    rfca =[1, 1, 1, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0]
+    # 63 - 120
+    rfcaNum = [198,207,113,225,142,27,242,185,110,145,101,10,213,241,140,212,210,95,245,132,173,160,196,183,185]
+    # 9 - 280
+    #rfcaNum = [198,207,113,225,142,27,159,133,119,145,101,10,213,241,140,212,43,95,245,132,173,241,196,183,86]
+    # 1 - 24
+    #rfcaNum = [198,207,113,	225, 142, 27,159,211,119,145,101 ,10 ,213,241,140,1,43,95,245,132,181,241,196,183,37]
+    # 26 - 140
+    #rfcaNum = [176,207,113,225,142,27,159,1,119,177, 101, 10,213, 241,140,146,43 ,95,245,132,173 ,241,196 ,86,86]
     evaluate_calculation(rfcaNum, rfca)
 
+    plt.imsave('w.png', evaluate_record, cmap='gray')
     save(evaluate_record, 'record.xls')
 
 
