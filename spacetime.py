@@ -1,7 +1,6 @@
 # TUCO Assessment
 # Question 1 Source Code Part 2
 # For quation 1.6
-# Used DEAP as GA library
 
 import random
 import math

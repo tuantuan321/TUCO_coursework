@@ -8,13 +8,12 @@ import numpy as np
 import numbers
 import xlwt
 import multiprocessing
-import cmath
 
 from deap import base
 from deap import creator
 from deap import tools
 
-# some parameters
+# some pre-define parameters
 HISTORY_AMOUNT = 2000
 TLIMIT = 300
 THRESHOLD = 10
@@ -33,16 +32,10 @@ def fitness_calculation(ruleNum):
     tranLen = 0
     tranLen, attrLen = rfca_evaluation(ruleNum)
 
-    #print('tranLen = ' + str(tranLen))
-    #print('attrLen = ' + str(attrLen))
-    #print('-------------------')
-
     fitness = novel_cal(tranLen, attrLen)
 
     archive(ruleNum, tranLen, attrLen, fitness)
 
-    #print(fitness)
-    # although it returns fitness, the evaluation process doesn't rely on the fitness value
     return fitness,
 
 def rfca_generate():
@@ -50,7 +43,6 @@ def rfca_generate():
     for j in range(25):
         rfcaIn.append(random.randint(0, 1))
     print(rfcaIn)
-
 
 def rfca_evaluation(ruleNum):
     global cal_history
@@ -60,7 +52,7 @@ def rfca_evaluation(ruleNum):
     aCount = 0
     tCount = 0
     attractor_found = False
-    # assume that the transient length is less than 320
+    # due to the calculation resource limits, the transient length is limited to 300
     rfcaAll = np.zeros((TLIMIT, 25))
     rfca = []
     rfcaNew = []
@@ -79,14 +71,12 @@ def rfca_evaluation(ruleNum):
     # use history to store calculated fitness
     # optimize purpose
     if (calculated == True):
-        #print("history used")
         return cal_history[historyNum][8], cal_history[historyNum][9]
 
     for i in range(25):
         rfca.append(rfcaIn[i])
 
     while (attractor_found == False):
-
         # before each loop, clear rfcaNew
         if (len(rfcaNew) != 0):
             for p in range(25):
@@ -102,21 +92,14 @@ def rfca_evaluation(ruleNum):
             num1 = rfca[i]
             num2 = rfca[i - 1]
             num3 = rfca[i + 1]
-            #print("i = " + str(i))
-            #print(num1)
-            #print(num2)
-            #print(num3)
             updateNum = rfca_rule(ruleNum[i], num1, num2, num3)
-
             rfcaNew.append(updateNum)
 
         #update node 25
         updateNum = rfca_rule(ruleNum[24], rfca[24], rfca[23], rfca[0])
         rfcaNew.append(updateNum)
-
         for i in range(25):
             rfca[i] = rfcaNew[i]
-
         lens = len(rfcaAll)
 
         # compare the latest rfca individual with the privous ones
@@ -138,9 +121,6 @@ def rfca_evaluation(ruleNum):
             tCount = 0
             attractor_found = True
             aCount = 0
-        #print(rfcaAll)
-        #print('attractor length = ' + str(attrCount))
-
     tCount = tCount - aCount
 
     if (history_count < HISTORY_AMOUNT - 1) and (calculated == False):
@@ -149,8 +129,6 @@ def rfca_evaluation(ruleNum):
             cal_history[history_count][i] = ruleNum[i]
         cal_history[history_count][8] = tCount
         cal_history[history_count][9] = aCount
-    #print(cal_history[history_count - 1])
-    #print(history_count)
     return  tCount, aCount
 
 ###################### RFCA rules generator########################
@@ -257,10 +235,6 @@ def novel_cal(transient, attractor):
                 tNear3 = tNear2
                 tNear2 = tNear1
                 tNear1 = tTemp
-                print('tTemp < tNear1')
-                print(tNear1)
-                print(tNear2)
-                print(tNear3)
             else:
                 if (tTemp <= tNear2):
                     tNear3 = tNear2
@@ -282,19 +256,16 @@ def novel_cal(transient, attractor):
                     if (aTemp < aNear3):
                         aNear3 = aTemp
 
-    #novelScore = abs(tNear3 + tNear2 + tNear1 + aNear3 + aNear2 + aNear1 - transient * 3 - attractor * 3)
+    # calcualte average distance
     novelScore = np.sqrt(np.square(tNear3 - transient) + np.square(aNear3 - attractor)) + np.sqrt(np.square(tNear2 - transient) + np.square(aNear2 - attractor)) + np.sqrt(np.square(tNear1 - transient) + np.square(aNear1 - attractor))
-
     novelScore = novelScore/3
 
     if (archive_count == 1):
         novelScore = 0
 
-#    if (novelScore != 0):
-#        print(novelScore)
     return novelScore
 
-#archive function (optimized)
+#archive function
 def archive(individual, transient, attractor, score):
     global archives
     global archive_count
@@ -341,13 +312,12 @@ toolbox.register("population", tools.initRepeat, list, toolbox.individual)
 
 toolbox.register("evaluate", fitness_calculation)
 toolbox.register("mate", tools.cxTwoPoint)
-#toolbox.register("select", tools.selTournament, tournsize=2)
-#toolbox.register("mutate", tools.mutShuffleIndexes, indpb=0.10)
 toolbox.register("mutate", tools.mutUniformInt, low=0, up=250, indpb=0.10)
 
 pool = multiprocessing.Pool()
 toolbox.register("map", pool.map)
 
+# used for save calculation data
 def save(data, path):
     f = xlwt.Workbook()
     sheet1 = f.add_sheet(u'sheet1', cell_overwrite_ok = True)
@@ -364,30 +334,23 @@ def main():
     global archives
     global archive_count
 
-    #rfcaInitial = []
-    #rfcaFinal = []
-
     # deap parameters
     NGEN = 20
     POP = 50
     MUTPB = 0.1
     CXPB = 0.1
 
-    # generate rules
+    # generate rules and rfca
     rule_generate()
-    #print(rule_set)
-
     rfca_generate()
 
+    # some codes are from DEAP's official documentation
     population = toolbox.population(n = POP)
 
     # evaluate the population
     fitnesses = map(toolbox.evaluate, population)
     for ind, fit in zip(population, fitnesses):
         ind.fitness.values = fit
-
-    # extract all the fitnesses
-    fits = [ind.fitness.values[0] for ind in population]
 
     gen = 0
 
@@ -396,9 +359,7 @@ def main():
         gen = gen + 1
         print("Generation: %i" %gen)
 
-        # select next generation
-        #offspring = toolbox.select(population, len(population))
-        #offspring = list(map(toolbox.clone, offspring))
+        # prepare for next generation
         offspring = list(map(toolbox.clone, population))
 
         for child1, child2 in zip(offspring[::2], offspring[1::2]):
@@ -419,17 +380,19 @@ def main():
 
         population[:] = offspring
 
+        # output average fitness for each generation
         fits = [ind.fitness.values[0] for ind in population]
-
         length = len(population)
         mean = sum(fits) / length
-
         print(" %s," % mean)
         print(" %i" % gen)
 
+    # print archived individuals
     print("  Archived Individual: %s" % archive_count)
 
+    # archived individuals
     save(archives, 'archives.xls')
+    # not archived individuals
     save(not_archive_but_different, 'others.xls')
 
     return population
